@@ -1,41 +1,59 @@
 name: Build Windows Installer
+
 on:
-workflow_dispatch:
-push:
-branches:
-- main
-paths:
-- "desktop/**"
-- ".github/workflows/windows-build.yml"
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths:
+      - "desktop/**"
+      - ".github/workflows/windows-build.yml"
+
 jobs:
-build-windows:
-name: Build Windows x64
-runs-on: windows-latest
-permissions:
-contents: read
-steps:
-- name: Check out source code
-uses: actions/checkout@v7
-- name: Set up Node.js
-uses: actions/setup-node@v6
-with:
-node-version: "24"
-cache: npm
-cache-dependency-path: desktop/package-lock.json
-- name: Set up Rust
-uses: dtolnay/rust-toolchain@stable
-- name: Cache Rust build files
-uses: swatinem/rust-cache@v2
-with:
-workspaces: desktop/src-tauri -> target
-- name: Install JavaScript dependencies
-working-directory: desktop
-run: npm ci
-- name: Build Windows NSIS installer
-working-directory: desktop
-run: npm run tauri build -- --bundles nsis
-- name: Upload Windows installer
-uses: actions/upload-artifact@v6
-with:
-name: pharmacy-inventory-windows-x64
-path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build files
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "desktop/src-tauri -> target"
+
+      - name: Install JavaScript dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows NSIS installer
+        working-directory: desktop
+        run: npm run tauri build -- --bundles nsis
+
+      - name: Show generated installers
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "src-tauri\target\release\bundle" -Recurse
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: pharmacy-inventory-windows-x64
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

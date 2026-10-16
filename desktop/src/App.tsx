@@ -1,51 +1,106 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router";
+
+import { AppLayout } from "./layout/AppLayout";
+import { Dashboard } from "./pages/Dashboard";
+import { FindMedicine } from "./pages/FindMedicine";
+import { ModulePage } from "./pages/ModulePage";
+import { NotFound } from "./pages/NotFound";
+import { Products } from "./pages/Products";
+
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
+export default function App() {
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <HashRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Dashboard />} />
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+          <Route
+            path="dashboard"
+            element={<Navigate to="/" replace />}
+          />
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+          <Route
+            path="find-medicine"
+            element={<FindMedicine />}
+          />
+
+          {/* Actual Products page */}
+          <Route
+            path="products"
+            element={<Products />}
+          />
+
+          <Route
+            path="locations"
+            element={
+              <ModulePage
+                title="Locations"
+                description="Organize shelves, sections, bins, and store rooms."
+              />
+            }
+          />
+
+          <Route
+            path="receiving"
+            element={
+              <ModulePage
+                title="Receiving"
+                description="Record purchases and independent restock batches."
+              />
+            }
+          />
+
+          <Route
+            path="inventory"
+            element={
+              <ModulePage
+                title="Inventory"
+                description="View available stock and low-stock alerts."
+              />
+            }
+          />
+
+          <Route
+            path="reports"
+            element={
+              <ModulePage
+                title="Reports"
+                description="Explore inventory movement, sales, and purchases."
+              />
+            }
+          />
+
+          <Route
+            path="sync"
+            element={
+              <ModulePage
+                title="Sync"
+                description="A future place for offline and synchronization status."
+              />
+            }
+          />
+
+          <Route
+            path="settings"
+            element={
+              <ModulePage
+                title="Settings"
+                description="Configure your inventory workspace."
+              />
+            }
+          />
+
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </HashRouter>
   );
 }
-
-export default App;

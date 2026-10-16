@@ -1,0 +1,44 @@
+/* Add alongside Day 1 App.css; do not replace your existing stylesheet. */
+.product-search { margin-top: 28px; }
+.product-search > h2 { font-size: 1.2rem; }
+.product-search > .muted { margin-top: 6px; }
+.product-search [role="search"] { margin: 24px 0 16px; }
+.product-search label { display: block; margin-bottom: 8px; font-weight: 600; }
+.product-search__controls { display: flex; align-items: center; gap: 12px; }
+.product-search__controls input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: white;
+  border: 1px solid #b9c5d5;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+.product-search__controls input:focus-visible {
+  outline: 3px solid #0c4aba;
+  outline-offset: 2px;
+}
+.product-search__controls button { flex-shrink: 0; }
+.product-search #product-search-hint { margin-top: 8px; font-size: 0.875rem; }
+.product-search__results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+}
+.product-search__result {
+  padding: 18px;
+  border: 1px solid #dce3ec;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.product-search__result h3 { margin-bottom: 8px; font-size: 1rem; }
+.product-search__result p { color: #58667b; font-size: 0.95rem; }
+@media (max-width: 600px) {
+  .product-search__controls { align-items: stretch; flex-direction: column; }
+  .product-search__results { grid-template-columns: 1fr; }
+}

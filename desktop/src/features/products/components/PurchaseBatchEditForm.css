@@ -1,0 +1,15 @@
+.batch-edit { max-width: 680px; padding: 1.4rem; background: white; border: 1px solid #e2e8f0; border-radius: 16px; color: #17243b; }
+.batch-edit__muted { color: #64748b; font-size: .9rem; }
+.batch-edit__form { display: grid; gap: .55rem; }
+.batch-edit__form label { font-weight: 600; font-size: .9rem; margin-top: .5rem; }
+.batch-edit__form input { padding: .65rem .8rem; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
+.batch-edit__form input[aria-invalid="true"] { border-color: #dc2626; }
+.batch-edit__error { color: #b91c1c; font-size: .85rem; margin: 0; }
+.batch-edit__read-only { background: #f8fafc; border-radius: 8px; padding: .85rem; margin: 1rem 0 0; }
+.batch-edit__read-only div { display: flex; justify-content: space-between; gap: 1rem; padding: .25rem 0; }
+.batch-edit__read-only dt { color: #64748b; }
+.batch-edit__read-only dd { margin: 0; font-weight: 600; }
+.batch-edit__actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1rem; }
+.batch-edit__actions button { border: 1px solid #bfdbfe; border-radius: 8px; padding: .65rem .85rem; background: #eff6ff; color: #1d4ed8; cursor: pointer; font-weight: 600; }
+.batch-edit__actions button[type="submit"] { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.batch-edit__actions button:disabled { opacity: .6; cursor: not-allowed; }

@@ -13,7 +13,7 @@ import { mockProducts } from "../features/products/data/mockProducts";
 import { mockPurchaseBatches } from "../features/products/data/mockPurchaseBatches";
 import type { ProductRecord } from "../features/products/product.types";
 import type { ProductFormValues } from "../features/products/product.schema";
-import { Modal } from "../components/ui/modal";
+import { Modal } from "../components/ui/Modal";
 
 export function Products() {
   // Practice-only state. Reloading the app restores the mock data.
@@ -156,6 +156,22 @@ export function Products() {
       </Modal>
 
       {editingBatch && (
+        <Modal
+          open={editingBatch !== null}
+          title="Edit purchase"
+          onClose={() => setEditingBatch(null)}
+        >
+          {editingBatch && (
+            <PurchaseBatchEditForm
+              batch={editingBatch}
+              productName={editingBatchProductName}
+              onCancel={() => setEditingBatch(null)}
+              onSave={handleSaveBatch}
+            />
+          )}  
+        </Modal>
+      )}
+        {/* )}
         <PurchaseBatchEditForm
           key={editingBatch.id}
           batch={editingBatch}
@@ -163,7 +179,7 @@ export function Products() {
           onCancel={() => setEditingBatch(null)}
           onSave={handleSaveBatch}
         />
-      )}
+      )} */}
 
       <ProductList
         products={products}

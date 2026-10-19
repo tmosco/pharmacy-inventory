@@ -13,6 +13,7 @@ import { mockProducts } from "../features/products/data/mockProducts";
 import { mockPurchaseBatches } from "../features/products/data/mockPurchaseBatches";
 import type { ProductRecord } from "../features/products/product.types";
 import type { ProductFormValues } from "../features/products/product.schema";
+import { Modal } from "../components/ui/modal";
 
 export function Products() {
   // Practice-only state. Reloading the app restores the mock data.
@@ -22,13 +23,15 @@ export function Products() {
 
   const [formMode, setFormMode] = useState<"ADD" | "EDIT" | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingBatch, setEditingBatch] =
-    useState<PurchaseBatchRow | null>(null);
+  const [editingBatch, setEditingBatch] = useState<PurchaseBatchRow | null>(
+    null,
+  );
   const [notice, setNotice] = useState("");
 
   const selected = products.find((product) => product.id === editingId) ?? null;
   const editingBatchProductName = editingBatch
-    ? products.find((product) => product.id === editingBatch.productId)?.genericName ?? "Product"
+    ? (products.find((product) => product.id === editingBatch.productId)
+        ?.genericName ?? "Product")
     : "";
 
   function openAdd() {
@@ -109,45 +112,48 @@ export function Products() {
         <Button onClick={openAdd}>Add product</Button>
       </header>
 
-      {notice && <p role="status" style={{ color: "#166534" }}>{notice}</p>}
+      {notice && (
+        <p role="status" style={{ color: "#166534" }}>
+          {notice}
+        </p>
+      )}
 
-      {formMode && (
-        <section
-          aria-labelledby="product-editor-heading"
-          style={{
-            background: "#fff",
-            padding: "1.5rem",
-            borderRadius: 16,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 id="product-editor-heading">
-              {formMode === "EDIT"
-                ? `Edit ${selected?.genericName ?? "product"}`
-                : "Add product"}
-            </h2>
-            <Button
-              variant="secondary"
+      <Modal
+        open={formMode !== null}
+        title={formMode === "EDIT" ? "Edit product" : "Add product"}
+        onClose={() => {
+          setFormMode(null);
+          setEditingId(null);
+        }}
+      >
+        {formMode && (
+          <>
+            <ProductForm
+              key={editingId ?? "new-product"}
+              onSave={saveProduct}
+              existingSkus={products
+                .filter((p) => p.id !== editingId)
+                .map((p) => p.sku)}
+              initialValues={
+                formMode === "EDIT" && selected ? selected : undefined
+              }
+              submitLabel={
+                formMode === "EDIT" ? "Save changes" : "Save product"
+              }
+            />
+
+            <button
+              type="button"
               onClick={() => {
-                setEditingId(null);
                 setFormMode(null);
+                setEditingId(null);
               }}
             >
               Cancel
-            </Button>
-          </div>
-          <ProductForm
-            key={editingId ?? "new-product"}
-            onSave={saveProduct}
-            existingSkus={products
-              .filter((product) => product.id !== editingId)
-              .map((product) => product.sku)}
-            initialValues={formMode === "EDIT" && selected ? selected : undefined}
-            submitLabel={formMode === "EDIT" ? "Save changes" : "Save product"}
-          />
-        </section>
-      )}
+            </button>
+          </>
+        )}
+      </Modal>
 
       {editingBatch && (
         <PurchaseBatchEditForm

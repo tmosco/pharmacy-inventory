@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { ProductForm } from "../features/products/components/ProductForm";
 import {
@@ -14,6 +14,15 @@ import { mockPurchaseBatches } from "../features/products/data/mockPurchaseBatch
 import type { ProductRecord } from "../features/products/product.types";
 import type { ProductFormValues } from "../features/products/product.schema";
 import { Modal } from "../components/ui/Modal";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { ToastMessage } from "../components/ToastMessage";
+
+
+type Toast = { kind: "success" | "error"; message: string };
+
+const pause = (milliseconds: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, milliseconds);
+});
 
 export function Products() {
   // Practice-only state. Reloading the app restores the mock data.
@@ -27,6 +36,13 @@ export function Products() {
     null,
   );
   const [notice, setNotice] = useState("");
+  const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [busyProductId, setBusyProductId] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [failNextSave, setFailNextSave] = useState(false);
+  const actionLock = useRef(false);
+  const saveFlight = useRef<Promise<void> | null>(null);
+  const target = products.find((product) => product.id === deactivateId) ?? null;
 
   const selected = products.find((product) => product.id === editingId) ?? null;
   const editingBatchProductName = editingBatch
@@ -55,24 +71,6 @@ export function Products() {
     setNotice("");
   }
 
-  async function saveProduct(values: ProductFormValues): Promise<void> {
-    if (formMode === "EDIT" && selected) {
-      setProducts((current) =>
-        current.map((product) =>
-          product.id === selected.id ? { ...product, ...values } : product,
-        ),
-      );
-      setNotice(`${values.genericName} updated successfully.`);
-    } else {
-      setProducts((current) => [
-        ...current,
-        { ...values, id: crypto.randomUUID(), status: "ACTIVE" },
-      ]);
-      setNotice(`${values.genericName} added successfully.`);
-    }
-    setFormMode(null);
-    setEditingId(null);
-  }
 
   function handleSaveBatch(
     batchId: string,
@@ -93,6 +91,89 @@ export function Products() {
     setNotice(`Purchase ${changes.name} updated successfully.`);
   }
 
+  async function performSave(values: ProductFormValues): Promise<void> {
+    // Delay is only to demonstrate isSubmitting and a disabled Save button.
+    await pause(650);
+    if (failNextSave) {
+      setFailNextSave(false);
+      throw new Error("Simulated storage failure");
+    }
+
+    if (formMode === "EDIT" && editingId) {
+      setProducts((current) => current.map((product) =>
+        product.id === editingId ? { ...product, ...values } : product,
+      ));
+      setToast({ kind: "success", message: `Changes saved for ${values.genericName}.` });
+    } else {
+      setProducts((current) => [
+        ...current,
+        { ...values, id: crypto.randomUUID(), status: "ACTIVE" },
+      ]);
+      setToast({ kind: "success", message: `${values.genericName} was added.` });
+    }
+    setFormMode(null);
+    setEditingId(null);
+  }
+
+  function saveProduct(values: ProductFormValues): Promise<void> {
+    // A synchronous in-flight guard prevents the same save running twice,
+    // even before the disabled button has had a chance to render.
+    if (saveFlight.current) return saveFlight.current;
+    const operation = performSave(values).finally(() => {
+      saveFlight.current = null;
+    });
+    saveFlight.current = operation;
+    return operation;
+  }
+
+  function requestDeactivate(product: ProductRecord) {
+    if (busyProductId !== null) return;
+    setDeactivateId(product.id);
+  }
+
+  async function confirmDeactivate() {
+    // Ref guards even against repeated clicks before React renders a new state.
+    if (!deactivateId || actionLock.current) return;
+    actionLock.current = true;
+    const id = deactivateId;
+    setBusyProductId(id);
+    try {
+      await pause(650);
+      const current = products.find((product) => product.id === id);
+      if (!current || current.status !== "ACTIVE") {
+        throw new Error("Product status changed");
+      }
+      setProducts((previous) => previous.map((product) =>
+        product.id === id ? { ...product, status: "INACTIVE" } : product,
+      ));
+      setToast({ kind: "success", message: `${current.genericName} is now inactive. You can reactivate it.` });
+      setDeactivateId(null);
+    } catch {
+      setToast({ kind: "error", message: "Could not deactivate the product. Please try again." });
+    } finally {
+      setBusyProductId(null);
+      actionLock.current = false;
+    }
+  }
+
+  async function reactivateProduct(product: ProductRecord) {
+    if (actionLock.current) return;
+    actionLock.current = true;
+    setBusyProductId(product.id);
+    try {
+      await pause(350);
+      setProducts((previous) => previous.map((item) =>
+        item.id === product.id ? { ...item, status: "ACTIVE" } : item,
+      ));
+      setToast({ kind: "success", message: `${product.genericName} is active again.` });
+    } catch {
+      setToast({ kind: "error", message: "Could not reactivate the product." });
+    } finally {
+      setBusyProductId(null);
+      actionLock.current = false;
+    }
+  }
+
   return (
     <main style={{ padding: "1.5rem", display: "grid", gap: "1.5rem" }}>
       <header
@@ -111,6 +192,10 @@ export function Products() {
         </div>
         <Button onClick={openAdd}>Add product</Button>
       </header>
+
+         {toast && (
+        <ToastMessage kind={toast.kind} message={toast.message} onDismiss={() => setToast(null)} />
+      )}
 
       {notice && (
         <p role="status" style={{ color: "#166534" }}>
@@ -187,7 +272,21 @@ export function Products() {
         purchaseBatches={purchaseBatches}
         branchId="branch-001"
         onEditBatch={openEditBatch}
+         onDeactivate={requestDeactivate}
+        onReactivate={reactivateProduct}
+        busyProductId={busyProductId}
       />
+
+       {target && (
+        <ConfirmDialog
+          title={`Deactivate ${target.genericName}?`}
+          description="This demo will mark the product INACTIVE, not delete it. Its sample record remains in the list, and you can reactivate it. Production sales restrictions must be implemented separately."
+          confirmLabel="Deactivate product"
+          busy={busyProductId === target.id}
+          onCancel={() => { if (busyProductId === null) setDeactivateId(null); }}
+          onConfirm={confirmDeactivate}
+        />
+      )}
     </main>
   );
 }

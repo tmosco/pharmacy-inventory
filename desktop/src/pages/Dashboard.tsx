@@ -1,81 +1,83 @@
-import { ProductSearch } from "../components/ProductSearch";
-import { searchProducts } from "../data/searchProducts";
-import { Button } from "../components/Button";
-import { EmptyState } from "../components/EmptyState";
-import { ErrorMessage } from "../components/ErrorMessage";
+import { Link } from "react-router";
 import { PageHeader } from "../components/PageHeader";
 import { StatCard } from "../components/StatCard";
+import { AttentionPanel } from "../features/dashboard/components/AttentionPanel";
+import { QuickActions } from "../features/dashboard/components/QuickActions";
+import { RecentActivity } from "../features/dashboard/components/RecentActivity";
+import {
+  dashboardActions,
+  mockDashboard,
+  type DashboardData,
+} from "../features/dashboard/data/mockDashboard";
+import "./Dashboard.css";
 
 export interface DashboardProps {
-  purchaseState?: "empty" | "error";
+  /** Optional for practice: pass another data object to see the UI change. */
+  data?: DashboardData;
 }
 
-export function Dashboard({ purchaseState = "empty" }: DashboardProps) {
-  function handleAddProduct() {
-    window.alert("Demo only: the product form is not connected yet.");
-  }
-
-  function handleRetry() {
-    window.alert("Demo only: no request is made. A real retry comes later.");
-  }
-
+/** Week 3 capstone: the dashboard arranges presentational components. */
+export function Dashboard({ data = mockDashboard }: DashboardProps) {
+  const { metrics } = data;
   return (
-    <main className="dashboard">
-      <p className="demo-notice">
-        Day 1 + Day 2 practice · Sample figures only. Nothing is saved.
+    <main className="dashboard overview-dashboard" id="dashboard-content">
+      <p className="overview-demo-note" role="note">
+        <span className="overview-demo-dot" aria-hidden="true" />
+        Demo mode · Sample numbers only · No SQLite or live synchronization
       </p>
-
       <PageHeader
-        title="Inventory dashboard"
-        subtitle="Main branch · An overview of your products and stock."
-        action={<Button onClick={handleAddProduct}>Add product</Button>}
+        title="Inventory overview"
+        subtitle={`${data.branchLabel} · Stock, alerts and recent operations at a glance`}
+        action={
+          <Link className="overview-primary-action" to="/products">
+            Open products <span aria-hidden="true">→</span>
+          </Link>
+        }
       />
 
-      <section className="stats-grid" aria-label="Inventory summary">
-        <StatCard
-          title="Total products"
-          value={143}
-          helpText="Sample catalog count"
-        />
-        <StatCard
-          title="Stock value"
-          value="₦1,250,000"
-          helpText="Sample inventory valuation"
-        />
-        <StatCard
-          title="Low-stock products"
-          value={7}
-          helpText="At or below their thresholds"
-          tone="warning"
-        />
-        <StatCard
-          title="Expiring soon"
-          value={4}
-          helpText="Within the next 30 days"
-          tone="danger"
-        />
-      </section>
-
-      <section className="panel" aria-labelledby="purchases-heading">
-        <div className="panel-heading">
-          <h2 id="purchases-heading">Recent purchases</h2>
-          <span className="badge">Demo panel</span>
+      <section className="overview-metrics" aria-label="Inventory status summary">
+        <div className="overview-metric-link-wrapper">
+          <Link to="/products" aria-label={`Total products: ${metrics.products}. Open Products`}>
+            <StatCard title="Total products" value={metrics.products} helpText="Catalog records" />
+          </Link>
         </div>
-
-        {purchaseState === "error" ? (
-          <ErrorMessage
-            title="Purchases unavailable"
-            message="We could not load recent purchases. Please try again."
-            onRetry={handleRetry}
-          />
-        ) : (
-          <EmptyState
-            title="No recent purchases"
-            description="Newly received purchases will appear here. This is a practice empty state."
-          />
-        )}
+        <div className="overview-metric-link-wrapper">
+          <Link to="/inventory" aria-label={`Low stock: ${metrics.lowStock} products. Review Inventory`}>
+            <StatCard title="Low stock" value={metrics.lowStock} helpText="Below or at reorder thresholds" tone="warning" />
+          </Link>
+        </div>
+        <div className="overview-metric-link-wrapper">
+          <Link to="/inventory" aria-label={`Out of stock: ${metrics.outOfStock} products. Review Inventory`}>
+            <StatCard title="Out of stock" value={metrics.outOfStock} helpText="No sellable quantity" tone="danger" />
+          </Link>
+        </div>
+        <div className="overview-metric-link-wrapper">
+          <Link to="/inventory" aria-label={`Expiring soon: ${metrics.expiringSoon} purchase batches. Review Inventory`}>
+            <StatCard title="Expiring soon" value={metrics.expiringSoon} helpText="Purchase batches · next 30 days" tone="warning" />
+          </Link>
+        </div>
+        <div className="overview-metric-link-wrapper">
+          <Link to="/inventory" aria-label={`Quarantined stock: ${metrics.quarantined} purchase batches. Review Inventory`}>
+            <StatCard title="Quarantined stock" value={metrics.quarantined} helpText="Purchase batches on hold" tone="danger" />
+          </Link>
+        </div>
+        <div className="overview-metric-link-wrapper">
+          <Link to="/sync" aria-label={`Pending sync: ${metrics.pendingSync} mock queued changes. Open Sync`}>
+            <StatCard title="Pending sync" value={metrics.pendingSync} helpText="Mock queued changes; not live" />
+          </Link>
+        </div>
       </section>
-      <ProductSearch products={searchProducts} />
+
+      <QuickActions actions={dashboardActions} />
+
+      <div className="overview-lower-grid">
+        <RecentActivity activities={data.recentActivity} />
+        <AttentionPanel metrics={metrics} />
+      </div>
+      <p className="overview-footer-note">
+        Figures are examples for interface review. Purchasing, stock allocation, alerts,
+        and synchronization will be connected to a trusted data layer later.
+      </p>
     </main>
   );
 }

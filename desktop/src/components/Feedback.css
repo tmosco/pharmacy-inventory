@@ -1,0 +1,12 @@
+.app-toast{display:flex;align-items:center;justify-content:space-between;gap:1rem;border:1px solid;border-radius:12px;padding:.8rem 1rem;font-size:.92rem}
+.app-toast--success{background:#f0fdf4;border-color:#86efac;color:#166534}
+.app-toast--error{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
+.app-toast button{flex-shrink:0;border:0;background:transparent;color:inherit;font-size:1.25rem;cursor:pointer}
+.app-confirm{border:1px solid #cbd5e1;border-radius:16px;max-width:440px;width:calc(100% - 2rem);box-shadow:0 20px 80px #0f172a40;padding:1.4rem;color:#17243b;background:#fff}
+.app-confirm::backdrop{background:rgba(15,23,42,.55)}
+.app-confirm h2{margin:0 0 .8rem;font-size:1.2rem}
+.app-confirm p{color:#475569;line-height:1.6;margin:0 0 1.4rem}
+.app-confirm__actions{display:flex;justify-content:flex-end;gap:.7rem;flex-wrap:wrap}
+.app-confirm__actions button{padding:.65rem .95rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;font-weight:600;cursor:pointer}
+.app-confirm__actions .app-confirm__danger{background:#b91c1c;border-color:#b91c1c;color:#fff}
+.app-confirm__actions button:disabled{opacity:.55;cursor:not-allowed}

@@ -1,8 +1,9 @@
+
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "desktop",
   "version": "0.1.0",
-  "identifier": "pharmarcy",
+  "identifier": "com.pharmacy.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "desktop",
+        "title": "Pharmacy",
         "width": 800,
         "height": 600
       }
@@ -31,5 +32,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:pharmacy.db"]
+    }
   }
 }

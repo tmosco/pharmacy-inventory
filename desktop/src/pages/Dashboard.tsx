@@ -10,6 +10,9 @@ import {
   type DashboardData,
 } from "../features/dashboard/data/mockDashboard";
 import "./Dashboard.css";
+import { DatabaseStatus } from "../components/DatabaseStatus";
+import { DatabaseSchemaCheck } from "../components/DatabaseSchemecheck";
+
 
 export interface DashboardProps {
   /** Optional for practice: pass another data object to see the UI change. */
@@ -78,6 +81,8 @@ export function Dashboard({ data = mockDashboard }: DashboardProps) {
         Figures are examples for interface review. Purchasing, stock allocation, alerts,
         and synchronization will be connected to a trusted data layer later.
       </p>
+      <DatabaseStatus />
+      <DatabaseSchemaCheck />
     </main>
   );
 }

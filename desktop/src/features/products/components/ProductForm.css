@@ -1,53 +1,13 @@
-.product-form {
-  display: grid;
-  gap: 1rem;
-  max-width: 680px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 1.25rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  color: #0f172a;
-}
-
-.product-form label {
-  display: grid;
-  gap: 0.4rem;
-  font-weight: 600;
-}
-
-.product-form input,
-.product-form select {
-  font: inherit;
-  padding: 0.65rem;
-  border: 1px solid #94a3b8;
-  border-radius: 7px;
-}
-
-.product-form [aria-invalid="true"] {
-  border-color: #dc2626;
-}
-
-.product-form small {
-  color: #b91c1c;
-  font-weight: 400;
-}
-
-.product-form button {
-  justify-self: start;
-  padding: 0.7rem 1.2rem;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: #2563eb;
-  cursor: pointer;
-}
-
-.product-form button:disabled {
-  opacity: 0.5;
-}
-
-.product-form [role="status"] {
-  color: #166534;
-}
+.product-form { display:grid; gap:1rem; max-width:680px; padding:1.25rem; border:1px solid #e2e8f0; border-radius:12px; background:#fff; color:#0f172a; }
+.product-form label { display:grid; gap:.4rem; font-weight:600; }
+.product-form input, .product-form select { font:inherit; padding:.65rem; border:1px solid #94a3b8; border-radius:7px; }
+.product-form [aria-invalid="true"] { border-color:#dc2626; }
+.product-form small { color:#b91c1c; font-weight:400; }
+.product-form button { justify-self:start; padding:.7rem 1.2rem; border:0; border-radius:8px; color:white; background:#2563eb; cursor:pointer; }
+.product-form button:disabled { opacity:.5; }
+.product-form [role="status"] { color:#166534; }
+.product-form__actions { display: flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.7rem; margin-top: .5rem; }
+.product-form__actions button { padding: .7rem 1.1rem; cursor:pointer; font-weight:600; border-radius:8px; border:1px solid #2563eb; background:#2563eb; color:#fff; }
+.product-form__actions .product-form__cancel { border-color:#cbd5e1; background:#fff; color:#334155; }
+.product-form__actions button:disabled { opacity:.55; cursor:not-allowed; }
+.product-form__root-error { padding:.75rem; color:#991b1b; background:#fef2f2; border-radius:8px; }

@@ -1,289 +1,274 @@
-import { useRef, useState } from "react";
-import { Button } from "../components/Button";
-import { ProductForm } from "../features/products/components/ProductForm";
-import {
-  ProductList,
-  type PurchaseBatchRow,
-} from "../features/products/components/ProductList";
-import {
-  PurchaseBatchEditForm,
-  type PurchaseBatchChanges,
-} from "../features/products/components/PurchaseBatchEditForm";
-import { mockProducts } from "../features/products/data/mockProducts";
-import { mockPurchaseBatches } from "../features/products/data/mockPurchaseBatches";
-import type { ProductRecord } from "../features/products/product.types";
-import type { ProductFormValues } from "../features/products/product.schema";
-import { Modal } from "../components/ui/Modal";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppModal } from "../components/AppModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastMessage } from "../components/ToastMessage";
+import { ProductForm } from "../features/products/components/ProductForm";
+import { ProductList } from "../features/products/components/ProductList";
+import { ProductUnitForm } from "../features/products/components/ProductUnitForm";
+import type { ProductRecord } from "../features/products/product.types";
+import type { ProductFormValues } from "../features/products/product.schema";
+import { productRepository } from "../data/repositories/productRepository";
+import { productUnitRepository, type NewProductUnit } from "../data/repositories/productUnitRepository";
+import { RepositoryError } from "../data/repositories/productRepository.core";
+import "./Products.css";
 
-
-type Toast = { kind: "success" | "error"; message: string };
-
-const pause = (milliseconds: number) => new Promise<void>((resolve) => {
-  window.setTimeout(resolve, milliseconds);
-});
+type FormMode = "ADD" | "EDIT" | null;
+type Notice = { kind: "success" | "error"; message: string };
 
 export function Products() {
-  // Practice-only state. Reloading the app restores the mock data.
-  const [products, setProducts] = useState<ProductRecord[]>(mockProducts);
-  const [purchaseBatches, setPurchaseBatches] =
-    useState<PurchaseBatchRow[]>(mockPurchaseBatches);
+  // SQLite is the source of truth. Never seed real catalog IDs from mockProducts.
+  const [products, setProducts] = useState<ProductRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
-  const [formMode, setFormMode] = useState<"ADD" | "EDIT" | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingBatch, setEditingBatch] = useState<PurchaseBatchRow | null>(
-    null,
-  );
-  const [notice, setNotice] = useState("");
+  const [unitProductId, setUnitProductId] = useState<string | null>(null);
+  const [modalBusy, setModalBusy] = useState(false);
+  const [modalDirty, setModalDirty] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
-  const [busyProductId, setBusyProductId] = useState<string | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const [failNextSave, setFailNextSave] = useState(false);
-  const actionLock = useRef(false);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const saveFlight = useRef<Promise<void> | null>(null);
-  const target = products.find((product) => product.id === deactivateId) ?? null;
+  const unitSaveFlight = useRef<Promise<void> | null>(null);
+  const deactivateLock = useRef(false);
+  const readVersion = useRef(0);
+
+  // Initial load and explicit Retry/Refresh. Ignore obsolete results.
+  useEffect(() => {
+    let ignore = false;
+    const version = ++readVersion.current;
+    setLoading(true);
+    setLoadError(null);
+    productRepository.list()
+      .then((rows) => {
+        if (!ignore && version === readVersion.current) {
+          setProducts(rows);
+          setRefreshError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Product catalog load failed", error);
+        if (!ignore && version === readVersion.current) {
+          setLoadError("Could not load products from SQLite. Check the database and try again.");
+        }
+      })
+      .finally(() => {
+        if (!ignore && version === readVersion.current) setLoading(false);
+      });
+    return () => { ignore = true; };
+  }, [reloadToken]);
 
   const selected = products.find((product) => product.id === editingId) ?? null;
-  const editingBatchProductName = editingBatch
-    ? (products.find((product) => product.id === editingBatch.productId)
-        ?.genericName ?? "Product")
-    : "";
+  const unitProduct = products.find((product) => product.id === unitProductId) ?? null;
+  const deactivationTarget = products.find((product) => product.id === deactivateId) ?? null;
+  const actionsBlocked = loading || refreshing || !!loadError || deactivatingId !== null || modalBusy;
+
+  function clearEditor() {
+    setFormMode(null);
+    setEditingId(null);
+    setUnitProductId(null);
+    setModalDirty(false);
+    setModalBusy(false);
+  }
+
+  function requestCloseEditor() {
+    if (modalBusy || saveFlight.current || unitSaveFlight.current) return;
+    if (modalDirty && !window.confirm("Discard your unsaved changes?")) return;
+    clearEditor();
+  }
+
+  const updateModalBusy = useCallback((value: boolean) => setModalBusy(value), []);
+  const updateModalDirty = useCallback((value: boolean) => setModalDirty(value), []);
 
   function openAdd() {
-    setEditingId(null);
-    setEditingBatch(null);
+    if (actionsBlocked) return;
+    clearEditor();
+    setNotice(null);
     setFormMode("ADD");
-    setNotice("");
   }
 
   function openEdit(product: ProductRecord) {
+    if (actionsBlocked) return;
+    clearEditor();
+    setNotice(null);
     setEditingId(product.id);
-    setEditingBatch(null);
     setFormMode("EDIT");
-    setNotice("");
   }
 
-  function openEditBatch(batch: PurchaseBatchRow) {
-    setEditingBatch(batch);
-    setEditingId(null);
-    setFormMode(null);
-    setNotice("");
+  function openPackaging(product: ProductRecord) {
+    if (actionsBlocked) return;
+    clearEditor();
+    setNotice(null);
+    setUnitProductId(product.id);
   }
 
-
-  function handleSaveBatch(
-    batchId: string,
-    changes: PurchaseBatchChanges,
-  ): void {
-    // Match by stable ID, not the editable purchase name.
-    if (!purchaseBatches.some((batch) => batch.id === batchId)) {
-      throw new Error("The selected purchase could not be found.");
+  // Refresh is distinct from the successful write; never repeat the write
+  // merely because the follow-up read failed.
+  async function refreshAfterMutation() {
+    setRefreshing(true);
+    setRefreshError(null);
+    const version = ++readVersion.current;
+    try {
+      const fresh = await productRepository.list();
+      if (version === readVersion.current) setProducts(fresh);
+    } catch (error) {
+      console.error("Product catalog refresh failed after confirmed write", error);
+      setRefreshError("The change was saved, but the list could not refresh. Use Refresh to retry.");
+    } finally {
+      setRefreshing(false);
     }
-
-    // Immutable update: only this one purchase receives the changes.
-    setPurchaseBatches((current) =>
-      current.map((batch) =>
-        batch.id === batchId ? { ...batch, ...changes } : batch,
-      ),
-    );
-    setEditingBatch(null);
-    setNotice(`Purchase ${changes.name} updated successfully.`);
   }
 
   async function performSave(values: ProductFormValues): Promise<void> {
-    // Delay is only to demonstrate isSubmitting and a disabled Save button.
-    await pause(650);
-    if (failNextSave) {
-      setFailNextSave(false);
-      throw new Error("Simulated storage failure");
+    const mode = formMode;
+    const id = editingId;
+    if (mode === "EDIT") {
+      if (!id) throw new Error("No product selected for editing.");
+      const changed = await productRepository.update(id, values);
+      setProducts((current) => current.map((p) => p.id === id ? { ...p, ...changed } : p));
+      setNotice({ kind: "success", message: "Product changes saved to SQLite." });
+    } else if (mode === "ADD") {
+      const saved = await productRepository.create(values);
+      setProducts((current) => [...current, saved]);
+      setNotice({ kind: "success", message: `${saved.genericName} saved to SQLite.` });
+    } else {
+      throw new Error("No product form is open.");
     }
 
-    if (formMode === "EDIT" && editingId) {
-      setProducts((current) => current.map((product) =>
-        product.id === editingId ? { ...product, ...values } : product,
-      ));
-      setToast({ kind: "success", message: `Changes saved for ${values.genericName}.` });
-    } else {
-      setProducts((current) => [
-        ...current,
-        { ...values, id: crypto.randomUUID(), status: "ACTIVE" },
-      ]);
-      setToast({ kind: "success", message: `${values.genericName} was added.` });
-    }
-    setFormMode(null);
-    setEditingId(null);
+    // Only reached after a successful write. Do not keep the modal open
+    // merely because a subsequent refresh might fail.
+    clearEditor();
+    await refreshAfterMutation();
   }
 
   function saveProduct(values: ProductFormValues): Promise<void> {
-    // A synchronous in-flight guard prevents the same save running twice,
-    // even before the disabled button has had a chance to render.
     if (saveFlight.current) return saveFlight.current;
-    const operation = performSave(values).finally(() => {
-      saveFlight.current = null;
-    });
-    saveFlight.current = operation;
-    return operation;
+    const flight = performSave(values).finally(() => { saveFlight.current = null; });
+    saveFlight.current = flight;
+    return flight;
+  }
+
+  async function performSaveUnit(values: NewProductUnit): Promise<void> {
+    await productUnitRepository.create(values);
+    const productName = unitProduct?.genericName ?? "Product";
+    clearEditor();
+    setNotice({ kind: "success", message: `Packaging saved for ${productName}.` });
+  }
+
+  function saveUnit(values: NewProductUnit): Promise<void> {
+    if (unitSaveFlight.current) return unitSaveFlight.current;
+    const flight = performSaveUnit(values).finally(() => { unitSaveFlight.current = null; });
+    unitSaveFlight.current = flight;
+    return flight;
   }
 
   function requestDeactivate(product: ProductRecord) {
-    if (busyProductId !== null) return;
+    if (actionsBlocked || product.status !== "ACTIVE") return;
     setDeactivateId(product.id);
+    setNotice(null);
   }
 
   async function confirmDeactivate() {
-    // Ref guards even against repeated clicks before React renders a new state.
-    if (!deactivateId || actionLock.current) return;
-    actionLock.current = true;
+    if (!deactivateId || deactivateLock.current) return;
+    deactivateLock.current = true;
     const id = deactivateId;
-    setBusyProductId(id);
+    setDeactivatingId(id);
     try {
-      await pause(650);
-      const current = products.find((product) => product.id === id);
-      if (!current || current.status !== "ACTIVE") {
-        throw new Error("Product status changed");
-      }
-      setProducts((previous) => previous.map((product) =>
-        product.id === id ? { ...product, status: "INACTIVE" } : product,
-      ));
-      setToast({ kind: "success", message: `${current.genericName} is now inactive. You can reactivate it.` });
+      await productRepository.deactivate(id);
+      setProducts((current) => current.map((p) => p.id === id ? { ...p, status: "INACTIVE" } : p));
       setDeactivateId(null);
-    } catch {
-      setToast({ kind: "error", message: "Could not deactivate the product. Please try again." });
+      setNotice({ kind: "success", message: "Product deactivated. Its record was preserved." });
+      await refreshAfterMutation();
+    } catch (error) {
+      console.error("Product deactivation failed", error);
+      setNotice({ kind: "error", message: error instanceof RepositoryError ? error.message : "Could not deactivate. Please try again." });
     } finally {
-      setBusyProductId(null);
-      actionLock.current = false;
-    }
-  }
-
-  async function reactivateProduct(product: ProductRecord) {
-    if (actionLock.current) return;
-    actionLock.current = true;
-    setBusyProductId(product.id);
-    try {
-      await pause(350);
-      setProducts((previous) => previous.map((item) =>
-        item.id === product.id ? { ...item, status: "ACTIVE" } : item,
-      ));
-      setToast({ kind: "success", message: `${product.genericName} is active again.` });
-    } catch {
-      setToast({ kind: "error", message: "Could not reactivate the product." });
-    } finally {
-      setBusyProductId(null);
-      actionLock.current = false;
+      setDeactivatingId(null);
+      deactivateLock.current = false;
     }
   }
 
   return (
-    <main style={{ padding: "1.5rem", display: "grid", gap: "1.5rem" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "1rem",
-        }}
-      >
+    <main className="sqlite-products-page">
+      <header className="sqlite-products-page__heading">
         <div>
-          <h1 style={{ margin: 0 }}>Products</h1>
-          <p style={{ color: "#64748b" }}>
-            Manage your inventory catalog. Example data only.
-          </p>
+          <h1>Products</h1>
+          <p>Product catalog saved in SQLite. Purchase-batch inventory is not connected yet.</p>
         </div>
-        <Button onClick={openAdd}>Add product</Button>
+        <div className="sqlite-products-page__toolbar">
+          <button type="button" onClick={() => setReloadToken((n) => n + 1)} disabled={actionsBlocked}>Refresh</button>
+          <button type="button" className="sqlite-products-page__primary" onClick={openAdd} disabled={actionsBlocked}>Add product</button>
+        </div>
       </header>
 
-         {toast && (
-        <ToastMessage kind={toast.kind} message={toast.message} onDismiss={() => setToast(null)} />
+      {notice && <ToastMessage kind={notice.kind} message={notice.message} onDismiss={() => setNotice(null)} />}
+      {refreshError && <div role="alert" className="sqlite-products-page__warning">{refreshError}</div>}
+      {loading ? (
+        <p role="status">Loading products from SQLite…</p>
+      ) : loadError ? (
+        <div role="alert" className="sqlite-products-page__error">
+          <p>{loadError}</p>
+          <button type="button" onClick={() => setReloadToken((n) => n + 1)}>Try again</button>
+        </div>
+      ) : (
+        <>
+          {refreshing && <p role="status">Refreshing product catalog…</p>}
+          <ProductList
+            products={products}
+            onEdit={openEdit}
+            onDeactivate={requestDeactivate}
+            onAddUnit={openPackaging}
+            busyProductId={actionsBlocked ? "busy" : null}
+            // Explicitly omit purchaseBatches: those values are not in SQLite yet.
+            // The list shows "Not connected" rather than attaching old mock IDs.
+          />
+        </>
       )}
 
-      {notice && (
-        <p role="status" style={{ color: "#166534" }}>
-          {notice}
-        </p>
-      )}
-
-      <Modal
-        open={formMode !== null}
-        title={formMode === "EDIT" ? "Edit product" : "Add product"}
-        onClose={() => {
-          setFormMode(null);
-          setEditingId(null);
-        }}
-      >
-        {formMode && (
-          <>
-            <ProductForm
-              key={editingId ?? "new-product"}
-              onSave={saveProduct}
-              existingSkus={products
-                .filter((p) => p.id !== editingId)
-                .map((p) => p.sku)}
-              initialValues={
-                formMode === "EDIT" && selected ? selected : undefined
-              }
-              submitLabel={
-                formMode === "EDIT" ? "Save changes" : "Save product"
-              }
-            />
-
-            <button
-              type="button"
-              onClick={() => {
-                setFormMode(null);
-                setEditingId(null);
-              }}
-            >
-              Cancel
-            </button>
-          </>
-        )}
-      </Modal>
-
-      {editingBatch && (
-        <Modal
-          open={editingBatch !== null}
-          title="Edit purchase"
-          onClose={() => setEditingBatch(null)}
+      {formMode && (
+        <AppModal
+          title={formMode === "EDIT" ? `Edit ${selected?.genericName ?? "product"}` : "Add product"}
+          busy={modalBusy}
+          onRequestClose={requestCloseEditor}
         >
-          {editingBatch && (
-            <PurchaseBatchEditForm
-              batch={editingBatch}
-              productName={editingBatchProductName}
-              onCancel={() => setEditingBatch(null)}
-              onSave={handleSaveBatch}
-            />
-          )}  
-        </Modal>
+          <ProductForm
+            key={editingId ?? "add"}
+            onSave={saveProduct}
+            onCancel={requestCloseEditor}
+            onPendingChange={updateModalBusy}
+            onDirtyChange={updateModalDirty}
+            existingSkus={products.filter((p) => p.id !== editingId).map((p) => p.sku)}
+            initialValues={formMode === "EDIT" && selected ? selected : undefined}
+            submitLabel={formMode === "EDIT" ? "Save changes" : "Save product"}
+          />
+        </AppModal>
       )}
-        {/* )}
-        <PurchaseBatchEditForm
-          key={editingBatch.id}
-          batch={editingBatch}
-          productName={editingBatchProductName}
-          onCancel={() => setEditingBatch(null)}
-          onSave={handleSaveBatch}
-        />
-      )} */}
 
-      <ProductList
-        products={products}
-        onEdit={openEdit}
-        purchaseBatches={purchaseBatches}
-        branchId="branch-001"
-        onEditBatch={openEditBatch}
-         onDeactivate={requestDeactivate}
-        onReactivate={reactivateProduct}
-        busyProductId={busyProductId}
-      />
+      {unitProduct && (
+        <AppModal title={`Packaging for ${unitProduct.genericName}`} busy={modalBusy} onRequestClose={requestCloseEditor}>
+          <ProductUnitForm
+            key={unitProduct.id}
+            productId={unitProduct.id}
+            productName={unitProduct.genericName}
+            onSave={saveUnit}
+            onCancel={requestCloseEditor}
+            onPendingChange={updateModalBusy}
+            onDirtyChange={updateModalDirty}
+          />
+        </AppModal>
+      )}
 
-       {target && (
+      {deactivationTarget && (
         <ConfirmDialog
-          title={`Deactivate ${target.genericName}?`}
-          description="This demo will mark the product INACTIVE, not delete it. Its sample record remains in the list, and you can reactivate it. Production sales restrictions must be implemented separately."
+          title={`Deactivate ${deactivationTarget.genericName}?`}
+          description="This marks the product inactive. It does not delete its record or purchase history. An authorized reactivation action must be implemented separately."
           confirmLabel="Deactivate product"
-          busy={busyProductId === target.id}
-          onCancel={() => { if (busyProductId === null) setDeactivateId(null); }}
+          busy={deactivatingId === deactivationTarget.id}
+          onCancel={() => { if (!deactivateLock.current) setDeactivateId(null); }}
           onConfirm={confirmDeactivate}
         />
       )}

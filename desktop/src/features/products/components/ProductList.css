@@ -112,3 +112,7 @@
 .product-list__price strong { font-size: 0.93rem; color: #0f172a; }
 .product-list__price small { color: #64748b; font-size: 0.72rem; max-width: 170px; white-space: normal; }
 .product-list__price-unavailable { color: #64748b; font-size: 0.82rem; }
+
+.product-list__actions { flex-wrap: wrap; }
+.product-list__table .product-list__deactivate { color:#9f1239; background:#fff1f2; border-color:#fecdd3; }
+.product-list__table button:disabled { opacity:.5; cursor:not-allowed; }

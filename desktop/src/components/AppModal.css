@@ -1,0 +1,10 @@
+.inventory-modal { border: 1px solid #e2e8f0; border-radius: 18px; padding: 0; width: min(620px, calc(100vw - 32px)); max-height: min(90dvh, 900px); overflow: auto; box-shadow: 0 24px 80px rgba(15,23,42,.24); background: #fff; color:#0f172a; }
+.inventory-modal::backdrop { background: rgba(15,23,42,.48); }
+.inventory-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.4rem; border-bottom: 1px solid #e2e8f0; }
+.inventory-modal__header h2 { font-size:1.2rem; margin:0; }
+.inventory-modal__close { border:0; border-radius:8px; background:transparent; font-size:1.8rem; line-height:1; padding:4px 10px; cursor:pointer; color:#475569; }
+.inventory-modal__close:hover { background:#f1f5f9; }
+.inventory-modal__close:focus-visible { outline: 3px solid #93c5fd; outline-offset:2px; }
+.inventory-modal__body { padding:1.4rem; }
+@media(max-width:560px) { .inventory-modal__header,.inventory-modal__body { padding:1rem; } }
+.inventory-modal .product-form { padding: 0; border: 0; max-width: none; }

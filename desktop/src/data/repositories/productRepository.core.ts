@@ -44,25 +44,6 @@ export interface SqlClient {
   execute(sql: string, values?: unknown[]): Promise<{ rowsAffected: number }>;
 }
 
-// export class RepositoryError extends Error {
-//   constructor(
-//     public readonly code:
-//       | "INVALID_INPUT"
-//       | "DUPLICATE_SKU"
-//       | "DUPLICATE_BARCODE"
-//       | "NOT_FOUND"
-//       | "DATABASE_BUSY"
-//       | "DATABASE_ERROR",
-//     message: string,
-//     public readonly field?: string,
-//     cause?: unknown,
-//   ) {
-//     super(message, { cause });
-//     this.name = "RepositoryError";
-//   }
-// }
-
-
 export class RepositoryError extends Error {
   public readonly cause?: unknown;
 
@@ -79,12 +60,10 @@ export class RepositoryError extends Error {
     cause?: unknown,
   ) {
     super(message);
-
     this.name = "RepositoryError";
     this.cause = cause;
   }
 }
-
 
 export function mapProductRow(row: ProductRow): ProductDto {
   return {

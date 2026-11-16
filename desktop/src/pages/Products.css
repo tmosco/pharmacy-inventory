@@ -1,0 +1,11 @@
+.sqlite-products-page { padding: 1.5rem; display:grid; gap:1.25rem; }
+.sqlite-products-page__heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+.sqlite-products-page__heading h1 { margin:0; color:#0f172a; }
+.sqlite-products-page__heading p { margin:.4rem 0 0; color:#64748b; }
+.sqlite-products-page__toolbar { display:flex; gap:.6rem; }
+.sqlite-products-page__toolbar button, .sqlite-products-page__error button { border:1px solid #cbd5e1; background:white; border-radius:8px; padding:.65rem 1rem; font:inherit; cursor:pointer; }
+.sqlite-products-page__toolbar .sqlite-products-page__primary { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600; }
+.sqlite-products-page__toolbar button:disabled { opacity:.5; cursor:not-allowed; }
+.sqlite-products-page__warning { border:1px solid #fcd34d; color:#92400e; background:#fffbeb; padding:.8rem 1rem; border-radius:8px; }
+.sqlite-products-page__error { border:1px solid #fecaca; color:#991b1b; background:#fef2f2; padding:1rem; border-radius:8px; }
+.sqlite-products-page button:focus-visible { outline: 3px solid #93c5fd; outline-offset:2px; }

@@ -5,23 +5,6 @@ exports.mapProductRow = mapProductRow;
 exports.normalizeProductInput = normalizeProductInput;
 exports.toRepositoryError = toRepositoryError;
 exports.makeProductRepository = makeProductRepository;
-// export class RepositoryError extends Error {
-//   constructor(
-//     public readonly code:
-//       | "INVALID_INPUT"
-//       | "DUPLICATE_SKU"
-//       | "DUPLICATE_BARCODE"
-//       | "NOT_FOUND"
-//       | "DATABASE_BUSY"
-//       | "DATABASE_ERROR",
-//     message: string,
-//     public readonly field?: string,
-//     cause?: unknown,
-//   ) {
-//     super(message, { cause });
-//     this.name = "RepositoryError";
-//   }
-// }
 class RepositoryError extends Error {
     code;
     field;

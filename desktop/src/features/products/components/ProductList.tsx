@@ -1,5 +1,7 @@
 import { Fragment, useState } from "react";
 import { EmptyState } from "../../../components/EmptyState";
+import type { ProductUnitRecord } from "../../../data/repositories/productUnitRepository";
+import { ProductUnitList } from "./ProductUnitList";
 import type { ProductRecord } from "../product.types";
 import {
   getVisibleProducts,
@@ -35,6 +37,14 @@ export interface ProductListProps {
   currency?: string;
   onDeactivate?: (product: ProductRecord) => void;
   onAddUnit?: (product: ProductRecord) => void;
+  onViewUnits?: (product: ProductRecord) => void;
+  onRetryUnits?: (product: ProductRecord) => void;
+  onEditUnit?: (unit: ProductUnitRecord) => void;
+  onDeactivateUnit?: (unit: ProductUnitRecord) => void;
+  productUnitsByProduct?: Readonly<Record<string, readonly ProductUnitRecord[]>>;
+  unitLoadingProductIds?: readonly string[];
+  unitLoadErrors?: Readonly<Record<string, string>>;
+  unitBusy?: boolean;
   busyProductId?: string | null;
 }
 
@@ -70,12 +80,21 @@ export function ProductList({
   currency = "NGN",
   onDeactivate,
   onAddUnit,
+  onViewUnits,
+  onRetryUnits,
+  onEditUnit,
+  onDeactivateUnit,
+  productUnitsByProduct = {},
+  unitLoadingProductIds = [],
+  unitLoadErrors = {},
+  unitBusy = false,
   busyProductId = null,
 }: ProductListProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [sort, setSort] = useState<ProductSort>("NAME_ASC");
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [expandedUnitProductId, setExpandedUnitProductId] = useState<string | null>(null);
 
   // Derived data: do not put the results in another useState.
   const visibleProducts = getVisibleProducts(products, query, status, sort);
@@ -219,6 +238,10 @@ export function ProductList({
 
                 const expanded = expandedProductId === product.id;
                 const detailsId = `purchase-details-${product.id}`;
+                const unitsExpanded = expandedUnitProductId === product.id;
+                const unitsDetailsId = `product-units-${product.id}`;
+                const unitsLoaded = Object.prototype.hasOwnProperty.call(productUnitsByProduct, product.id);
+                const productUnits = productUnitsByProduct[product.id] ?? [];
 
                 return (
                   <Fragment key={product.id}>
@@ -273,6 +296,22 @@ export function ProductList({
                           {onAddUnit && (
                             <button type="button" onClick={() => onAddUnit(product)} disabled={busyProductId !== null}>
                               Add packaging
+                            </button>
+                          )}
+                          {onViewUnits && (
+                            <button
+                              type="button"
+                              className="product-list__view"
+                              onClick={() => {
+                                const nextExpanded = !unitsExpanded;
+                                setExpandedUnitProductId(nextExpanded ? product.id : null);
+                                if (nextExpanded && !unitsLoaded) onViewUnits(product);
+                              }}
+                              disabled={busyProductId !== null || unitBusy}
+                              aria-expanded={unitsExpanded}
+                              aria-controls={unitsDetailsId}
+                            >
+                              {unitsExpanded ? "Hide packaging" : "View packaging"}
                             </button>
                           )}
                           {onDeactivate && product.status === "ACTIVE" && (
@@ -347,6 +386,25 @@ export function ProductList({
                                 </table>
                               </div>
                             )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {unitsExpanded && onEditUnit && onDeactivateUnit && onRetryUnits && (
+                      <tr className="product-list__detail-row">
+                        <td colSpan={10}>
+                          <div id={unitsDetailsId}>
+                            <ProductUnitList
+                              productName={product.genericName}
+                              baseUnit={product.baseUnit}
+                              units={productUnits}
+                              loading={unitLoadingProductIds.includes(product.id)}
+                              error={unitLoadErrors[product.id]}
+                              busy={unitBusy || busyProductId !== null}
+                              onEdit={onEditUnit}
+                              onDeactivate={onDeactivateUnit}
+                              onRetry={() => onRetryUnits(product)}
+                            />
                           </div>
                         </td>
                       </tr>

@@ -8,8 +8,10 @@ const { tmpdir } = require('node:os');
 
 const { makeBranchRepository } = require('./build/data/repositories/branchRepository.core.js');
 const { makeLocationRepository } = require('./build/data/repositories/locationRepository.core.js');
-const { makeProductUnitRepository } = require('./build/data/repositories/productUnitRepository.core.js');
+const { makeProductUnitRepository, assertProductUnitAllowed } = require('./build/data/repositories/productUnitRepository.core.js');
+const { toBaseUnits } = require('./build/features/products/utils/unitConversion.js');
 const SQL = readFileSync(join(__dirname,'fixtures/001_initial_catalog_REFERENCE_ONLY.sql'),'utf8');
+const UNIT_SQL = readFileSync(join(__dirname,'../src-tauri/migrations/002_product_unit_eligibility.sql'),'utf8');
 
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(),'inventory-week5-'));
@@ -17,6 +19,7 @@ function fixture() {
   const sqlite = new DatabaseSync(file);
   sqlite.exec('PRAGMA foreign_keys=ON;');
   sqlite.exec(SQL);
+  sqlite.exec(UNIT_SQL);
   const bindings = (xs = []) => Object.fromEntries(xs.map((x,i)=> [`$${i+1}`,x]));
   const provider = async () => ({
     async select(sql, values = []) { return sqlite.prepare(sql).all(bindings(values)); },
@@ -138,7 +141,7 @@ test('package units create/read/update with barcode leading zeros',async()=>{
    const row=await f.units.findByBarcode('000123');
    assert.equal(row.id,id);assert.equal(row.quantityInBaseUnits,100);
    assert.equal((await f.units.listForProduct(p)).length,1);
-   const updated=await f.units.update(id,{name:'Carton',quantityInBaseUnits:200,barcode:'000999',packDescription:'Two boxes'});
+   const updated=await f.units.update(p,id,{name:'Carton',quantityInBaseUnits:200,barcode:'000999',packDescription:'Two boxes'});
    assert.equal(updated.id,id);assert.equal(updated.quantityInBaseUnits,200);
    assert.equal((await f.units.findByBarcode('000999')).id,id);
  }finally{f.close();}
@@ -157,12 +160,41 @@ test('whole-unit products reject fractional conversion',async()=>{
    await assert.rejects(f.units.create(sampleUnit(p,'Half',0.5,'')),{code:'INVALID_INPUT'});
  }finally{f.close();}
 });
-test('products with decimal precision allow fractional conversion',async()=>{
+test('even decimal precision products require whole package conversions',async()=>{
  const f=fixture();try{
    const p=product(f.sqlite,3);
-   const id=await f.units.create(sampleUnit(p,'Bag',1.125,''));
-   assert.equal((await f.units.findById(id)).quantityInBaseUnits,1.125);
+   await assert.rejects(f.units.create(sampleUnit(p,'Bag',1.125,'')),{code:'INVALID_INPUT'});
  }finally{f.close();}
+});
+test('units show whole base conversion, eligibility flags, and persist through deactivate',async()=>{
+ const f=fixture();try{
+   const p=product(f.sqlite);
+   const tablet=await f.units.create({...sampleUnit(p,'Tablet',1,'001'),canPurchase:true,canSell:true});
+   const strip=await f.units.create({...sampleUnit(p,'Strip',10,'002'),canPurchase:true,canSell:true});
+   const box=await f.units.create({...sampleUnit(p,'Box',100,'003'),canPurchase:true,canSell:true});
+   await f.units.create({...sampleUnit(p,'Carton',1000,'004'),canPurchase:true,canSell:false});
+   assert.equal((await f.units.listByProduct(p)).length,4);
+   assert.equal((await f.units.findByBarcode('004')).canSell,false);
+   const inactive=await f.units.deactivate(p,box);
+   assert.equal(inactive.isActive,false);
+   assert.equal((await f.units.listByProduct(p)).length,4);
+   assert.equal((await f.units.findByBarcode('003')).id,box);
+   await assert.rejects(f.units.create(sampleUnit(p,'Another box',100,'003')),{code:'DUPLICATE_BARCODE'});
+   await assert.rejects(Promise.resolve().then(()=>assertProductUnitAllowed(inactive,'SALE')),{code:'INACTIVE_UNIT'});
+   const cannotSell=await f.units.findById((await f.units.findByBarcode('004')).id);
+   await assert.rejects(Promise.resolve().then(()=>assertProductUnitAllowed(cannotSell,'SALE')),{code:'UNIT_OPERATION_NOT_ALLOWED'});
+   const reopened=new DatabaseSync(f.file);
+   try { assert.equal(reopened.prepare('SELECT is_active FROM product_units WHERE id=?').get(box).is_active,0); }
+   finally { reopened.close(); }
+   assert.ok(tablet && strip && box);
+ }finally{f.close();}
+});
+test('conversion preview sums package quantities without touching stock',()=>{
+ assert.equal(toBaseUnits(2,100)+toBaseUnits(3,10)+toBaseUnits(4,1),234);
+ for (const [quantity,factor] of [[0,1],[-1,1],[1,0],[1,-2],[2.5,10],[1,2.5],[NaN,1],[Infinity,1]]) {
+   assert.throws(()=>toBaseUnits(quantity,factor));
+ }
+ assert.throws(()=>toBaseUnits(Number.MAX_SAFE_INTEGER,2),/too large/);
 });
 test('missing product for packaging is rejected',async()=>{
  const f=fixture();try{

@@ -5,4 +5,5 @@ import { getDb } from "../db";
 import { makeProductUnitRepository } from "./productUnitRepository.core";
 
 export const productUnitRepository = makeProductUnitRepository(getDb);
-export type { NewProductUnit, ProductUnitRecord, ProductUnitChanges } from "./productUnitRepository.core";
+export type { NewProductUnit, ProductUnitRecord, ProductUnitChanges, ProductUnitOperation } from "./productUnitRepository.core";
+export { assertProductUnitAllowed } from "./productUnitRepository.core";

@@ -7,6 +7,7 @@ export interface NavigationItem {
 // Single source of truth for sidebar labels and top-bar titles.
 export const navigationItems: readonly NavigationItem[] = [
   { path: "/", label: "Dashboard", shortLabel: "DB" },
+  { path: "/branches", label: "Branches", shortLabel: "BR" },
   { path: "/find-medicine", label: "Find Medicine", shortLabel: "FM" },
   { path: "/products", label: "Products", shortLabel: "PR" },
   { path: "/locations", label: "Locations", shortLabel: "LO" },

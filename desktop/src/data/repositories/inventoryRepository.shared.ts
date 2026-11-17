@@ -19,6 +19,8 @@ export type InventoryErrorCode =
   | "INVALID_PARENT"
   | "LOCATION_CYCLE"
   | "REFERENCE_IN_USE"
+  | "INACTIVE_UNIT"
+  | "UNIT_OPERATION_NOT_ALLOWED"
   | "DATABASE_BUSY"
   | "DATABASE_ERROR";
 

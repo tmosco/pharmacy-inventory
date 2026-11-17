@@ -7,6 +7,7 @@ npx --no-install tsc --strict --target ES2022 --module commonjs \
   src/data/repositories/inventoryRepository.shared.ts \
   src/data/repositories/branchRepository.core.ts \
   src/data/repositories/locationRepository.core.ts \
-  src/data/repositories/productUnitRepository.core.ts
+  src/data/repositories/productUnitRepository.core.ts \
+  src/features/products/utils/unitConversion.ts
   printf '%s\n' '{"type":"commonjs"}' > tests/build/package.json
 node --test tests/week5-repositories.sqlite.test.cjs

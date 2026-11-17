@@ -8,6 +8,7 @@ import {
 
 import { AppLayout } from "./layout/AppLayout";
 import { Dashboard } from "./pages/Dashboard";
+import { Branches } from "./pages/Branches";
 import { FindMedicine } from "./pages/FindMedicine";
 import { ModulePage } from "./pages/ModulePage";
 import { NotFound } from "./pages/NotFound";
@@ -36,6 +37,11 @@ export default function App() {
           <Route
             path="products"
             element={<Products />}
+          />
+
+          <Route
+            path="branches"
+            element={<Branches />}
           />
 
           <Route

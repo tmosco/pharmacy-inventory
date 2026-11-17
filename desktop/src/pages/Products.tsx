@@ -5,11 +5,13 @@ import { ToastMessage } from "../components/ToastMessage";
 import { ProductForm } from "../features/products/components/ProductForm";
 import { ProductList } from "../features/products/components/ProductList";
 import { ProductUnitForm } from "../features/products/components/ProductUnitForm";
+import type { ProductUnitRecord } from "../data/repositories/productUnitRepository";
 import type { ProductRecord } from "../features/products/product.types";
 import type { ProductFormValues } from "../features/products/product.schema";
 import { productRepository } from "../data/repositories/productRepository";
 import { productUnitRepository, type NewProductUnit } from "../data/repositories/productUnitRepository";
 import { RepositoryError } from "../data/repositories/productRepository.core";
+import { InventoryRepositoryError } from "../data/repositories/inventoryRepository.shared";
 import "./Products.css";
 
 type FormMode = "ADD" | "EDIT" | null;
@@ -28,12 +30,23 @@ export function Products() {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [unitProductId, setUnitProductId] = useState<string | null>(null);
+  const [unitMode, setUnitMode] = useState<"ADD" | "EDIT" | null>(null);
+  const [editingUnit, setEditingUnit] = useState<ProductUnitRecord | null>(null);
+  const [unitsByProduct, setUnitsByProduct] = useState<Record<string, ProductUnitRecord[]>>({});
+  const [unitLoadingIds, setUnitLoadingIds] = useState<Set<string>>(new Set());
+  const [unitLoadErrors, setUnitLoadErrors] = useState<Record<string, string>>({});
+  const [unitLookupBusy, setUnitLookupBusy] = useState(false);
+  const [unitActionBusy, setUnitActionBusy] = useState(false);
   const [modalBusy, setModalBusy] = useState(false);
   const [modalDirty, setModalDirty] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [unitDeactivationTarget, setUnitDeactivationTarget] = useState<ProductUnitRecord | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const saveFlight = useRef<Promise<void> | null>(null);
   const unitSaveFlight = useRef<Promise<void> | null>(null);
+  const unitActionFlight = useRef<Promise<void> | null>(null);
+  const unitListFlights = useRef(new Map<string, Promise<void>>());
+  const unitLookupLock = useRef(false);
   const deactivateLock = useRef(false);
   const readVersion = useRef(0);
 
@@ -65,12 +78,14 @@ export function Products() {
   const selected = products.find((product) => product.id === editingId) ?? null;
   const unitProduct = products.find((product) => product.id === unitProductId) ?? null;
   const deactivationTarget = products.find((product) => product.id === deactivateId) ?? null;
-  const actionsBlocked = loading || refreshing || !!loadError || deactivatingId !== null || modalBusy;
+  const actionsBlocked = loading || refreshing || !!loadError || deactivatingId !== null || modalBusy || unitLookupBusy;
 
   function clearEditor() {
     setFormMode(null);
     setEditingId(null);
     setUnitProductId(null);
+    setUnitMode(null);
+    setEditingUnit(null);
     setModalDirty(false);
     setModalBusy(false);
   }
@@ -104,6 +119,32 @@ export function Products() {
     clearEditor();
     setNotice(null);
     setUnitProductId(product.id);
+    setUnitMode("ADD");
+  }
+
+  async function openEditPackage(unit: ProductUnitRecord) {
+    if (actionsBlocked || unitLookupLock.current) return;
+    unitLookupLock.current = true;
+    setUnitLookupBusy(true);
+    setNotice(null);
+    try {
+      const fresh = await productUnitRepository.findById(unit.id);
+      if (!fresh) throw new InventoryRepositoryError("NOT_FOUND", "Packaging unit was not found. Refresh the list.");
+      const owner = products.find((product) => product.id === fresh.productId);
+      if (!owner) throw new InventoryRepositoryError("NOT_FOUND", "The product for this package was not found.");
+      setUnitProductId(owner.id);
+      setUnitMode("EDIT");
+      setEditingUnit(fresh);
+    } catch (error) {
+      console.error("Packaging lookup failed", error);
+      setNotice({
+        kind: "error",
+        message: error instanceof InventoryRepositoryError ? error.message : "Could not load this package for editing.",
+      });
+    } finally {
+      setUnitLookupBusy(false);
+      unitLookupLock.current = false;
+    }
   }
 
   // Refresh is distinct from the successful write; never repeat the write
@@ -121,6 +162,46 @@ export function Products() {
     } finally {
       setRefreshing(false);
     }
+  }
+
+  async function refreshUnitsForProduct(productId: string): Promise<void> {
+    const existingFlight = unitListFlights.current.get(productId);
+    if (existingFlight) return existingFlight;
+
+    const flight = (async () => {
+      setUnitLoadingIds((current) => new Set(current).add(productId));
+      setUnitLoadErrors((current) => {
+        const next = { ...current };
+        delete next[productId];
+        return next;
+      });
+      try {
+        const units = await productUnitRepository.listForProduct(productId);
+        setUnitsByProduct((current) => ({ ...current, [productId]: units }));
+      } catch (error) {
+        console.error("Product packaging list load failed", error);
+        setUnitLoadErrors((current) => ({
+          ...current,
+          [productId]: error instanceof InventoryRepositoryError
+            ? error.message
+            : "Could not load packaging from SQLite.",
+        }));
+      } finally {
+        setUnitLoadingIds((current) => {
+          const next = new Set(current);
+          next.delete(productId);
+          return next;
+        });
+        unitListFlights.current.delete(productId);
+      }
+    })();
+    unitListFlights.current.set(productId, flight);
+    return flight;
+  }
+
+  function loadUnitsForProduct(product: ProductRecord) {
+    if (Object.prototype.hasOwnProperty.call(unitsByProduct, product.id)) return;
+    void refreshUnitsForProduct(product.id);
   }
 
   async function performSave(values: ProductFormValues): Promise<void> {
@@ -153,16 +234,93 @@ export function Products() {
   }
 
   async function performSaveUnit(values: NewProductUnit): Promise<void> {
-    await productUnitRepository.create(values);
-    const productName = unitProduct?.genericName ?? "Product";
+    const productId = values.productId;
+    const productName = products.find((product) => product.id === productId)?.genericName ?? "Product";
+    if (unitMode === "EDIT") {
+      if (!editingUnit) throw new Error("No packaging unit selected for editing.");
+      const changed = await productUnitRepository.update(productId, editingUnit.id, {
+        name: values.name,
+        quantityInBaseUnits: values.quantityInBaseUnits,
+        barcode: values.barcode,
+        packDescription: values.packDescription,
+        canPurchase: values.canPurchase,
+        canSell: values.canSell,
+      });
+      setUnitsByProduct((current) => ({
+        ...current,
+        [productId]: (current[productId] ?? []).map((unit) => unit.id === changed.id ? changed : unit),
+      }));
+      setNotice({ kind: "success", message: `Packaging updated for ${productName}.` });
+    } else {
+      await productUnitRepository.create(values);
+      setNotice({ kind: "success", message: `Packaging saved for ${productName}.` });
+    }
     clearEditor();
-    setNotice({ kind: "success", message: `Packaging saved for ${productName}.` });
+    // Re-read after a confirmed write. A failed refresh must not repeat the save.
+    await refreshUnitsForProduct(productId);
   }
 
   function saveUnit(values: NewProductUnit): Promise<void> {
     if (unitSaveFlight.current) return unitSaveFlight.current;
     const flight = performSaveUnit(values).finally(() => { unitSaveFlight.current = null; });
     unitSaveFlight.current = flight;
+    return flight;
+  }
+
+  // async function deactivateUnit(unit: ProductUnitRecord): Promise<void> {
+  //   if (unitActionFlight.current) return unitActionFlight.current;
+  //   if (!window.confirm(`Deactivate ${unit.name}? It will stay in the list and its barcode will remain reserved.`)) return;
+  //   setUnitActionBusy(true);
+  //   const flight = (async () => {
+  //     try {
+  //       await productUnitRepository.deactivate(unit.productId, unit.id);
+  //       setNotice({ kind: "success", message: `${unit.name} was deactivated. Its record and barcode are preserved.` });
+  //       await refreshUnitsForProduct(unit.productId);
+  //     } catch (error) {
+  //       setNotice({ kind: "error", message: error instanceof InventoryRepositoryError ? error.message : "Could not deactivate this package." });
+  //     }
+  //   })().finally(() => { unitActionFlight.current = null; setUnitActionBusy(false); });
+  //   unitActionFlight.current = flight;
+  //   return flight;
+  // }
+
+  function requestDeactivateUnit(unit: ProductUnitRecord) {
+    if (unitActionFlight.current || unitActionBusy) return;
+    setNotice(null);
+    setUnitDeactivationTarget(unit);
+  }
+
+  async function confirmDeactivateUnit(): Promise<void> {
+    const unit = unitDeactivationTarget;
+    if (!unit) return;
+    if (unitActionFlight.current) return unitActionFlight.current;
+
+    setUnitActionBusy(true);
+
+    const flight = (async () => {
+      try {
+        await productUnitRepository.deactivate(unit.productId, unit.id);
+        setUnitDeactivationTarget(null);
+        setNotice({
+          kind: "success",
+          message: `${unit.name} was deactivated. Its record and barcode are preserved.`,
+        });
+        await refreshUnitsForProduct(unit.productId);
+      } catch (error) {
+        setUnitDeactivationTarget(null);
+        setNotice({
+          kind: "error",
+          message: error instanceof InventoryRepositoryError
+            ? error.message
+            : "Could not deactivate this package.",
+        });
+      }
+    })().finally(() => {
+      unitActionFlight.current = null;
+      setUnitActionBusy(false);
+    });
+
+    unitActionFlight.current = flight;
     return flight;
   }
 
@@ -222,9 +380,18 @@ export function Products() {
             onEdit={openEdit}
             onDeactivate={requestDeactivate}
             onAddUnit={openPackaging}
+            onViewUnits={loadUnitsForProduct}
+            onRetryUnits={(product) => { void refreshUnitsForProduct(product.id); }}
+            onEditUnit={openEditPackage}
+            // onDeactivateUnit={(unit) => { void deactivateUnit(unit); }}
+            onDeactivateUnit={requestDeactivateUnit}
+            productUnitsByProduct={unitsByProduct}
+            unitLoadingProductIds={[...unitLoadingIds]}
+            unitLoadErrors={unitLoadErrors}
+            unitBusy={unitLookupBusy || unitActionBusy || modalBusy}
             busyProductId={actionsBlocked ? "busy" : null}
-            // Explicitly omit purchaseBatches: those values are not in SQLite yet.
-            // The list shows "Not connected" rather than attaching old mock IDs.
+          // Explicitly omit purchaseBatches: those values are not in SQLite yet.
+          // The list shows "Not connected" rather than attaching old mock IDs.
           />
         </>
       )}
@@ -248,16 +415,31 @@ export function Products() {
         </AppModal>
       )}
 
-      {unitProduct && (
-        <AppModal title={`Packaging for ${unitProduct.genericName}`} busy={modalBusy} onRequestClose={requestCloseEditor}>
+      {unitProduct && unitMode && (
+        <AppModal
+          title={unitMode === "EDIT"
+            ? `Edit ${editingUnit?.name ?? "package"} for ${unitProduct.genericName}`
+            : `Packaging for ${unitProduct.genericName}`}
+          busy={modalBusy}
+          onRequestClose={requestCloseEditor}
+        >
           <ProductUnitForm
-            key={unitProduct.id}
+            key={`${unitProduct.id}:${unitMode}:${editingUnit?.id ?? "new"}`}
             productId={unitProduct.id}
             productName={unitProduct.genericName}
+            baseUnit={unitProduct.baseUnit}
             onSave={saveUnit}
             onCancel={requestCloseEditor}
             onPendingChange={updateModalBusy}
             onDirtyChange={updateModalDirty}
+            initialValues={unitMode === "EDIT" ? editingUnit ?? undefined : undefined}
+            existingNames={(unitsByProduct[unitProduct.id] ?? [])
+              .filter((unit) => unit.id !== editingUnit?.id)
+              .map((unit) => unit.name)}
+            existingBarcodes={(unitsByProduct[unitProduct.id] ?? [])
+              .filter((unit) => unit.id !== editingUnit?.id && unit.barcode)
+              .map((unit) => unit.barcode)}
+            submitLabel={unitMode === "EDIT" ? "Save package changes" : "Save packaging"}
           />
         </AppModal>
       )}
@@ -270,6 +452,18 @@ export function Products() {
           busy={deactivatingId === deactivationTarget.id}
           onCancel={() => { if (!deactivateLock.current) setDeactivateId(null); }}
           onConfirm={confirmDeactivate}
+        />
+      )}
+      {unitDeactivationTarget && (
+        <ConfirmDialog
+          title={`Deactivate ${unitDeactivationTarget.name}?`}
+          description="This package will remain in the list as inactive, and its barcode will stay reserved."
+          confirmLabel="Deactivate package"
+          busy={unitActionBusy}
+          onCancel={() => {
+            if (!unitActionFlight.current) setUnitDeactivationTarget(null);
+          }}
+          onConfirm={confirmDeactivateUnit}
         />
       )}
     </main>

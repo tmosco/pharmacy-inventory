@@ -1,0 +1,53 @@
+.sqlite-branches-page { padding: 1.5rem; display: grid; gap: 1.1rem; }
+.sqlite-branches-page .page-header { gap: 1rem; }
+.sqlite-branches-page .page-header h1 { margin: 0; color: #0f172a; }
+.sqlite-branches-page .page-header p { margin: .4rem 0 0; color: #64748b; }
+.sqlite-branches-page__toolbar { display: flex; gap: .6rem; }
+.sqlite-branches-page__toolbar button, .sqlite-branches-page__error button, .branch-list__row button { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: .65rem 1rem; color: #1e293b; font: inherit; cursor: pointer; }
+.sqlite-branches-page__toolbar .sqlite-branches-page__primary { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 650; }
+.sqlite-branches-page__toolbar button:disabled, .branch-list__row button:disabled { opacity: .5; cursor: not-allowed; }
+.sqlite-branches-page__warning { border: 1px solid #fcd34d; color: #92400e; background: #fffbeb; padding: .8rem 1rem; border-radius: 8px; }
+.sqlite-branches-page__error { border: 1px solid #fecaca; color: #991b1b; background: #fef2f2; padding: 1rem; border-radius: 8px; }
+.sqlite-branches-page__error p { margin: 0 0 .75rem; }
+.sqlite-branches-page button:focus-visible, .branch-form input:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.sqlite-branches-page__footnote { margin: .2rem 0 0; color: #71809a; font-size: .8rem; line-height: 1.5; }
+
+.branch-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+.branch-list__row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; border: 1px solid #dce3ec; border-radius: 11px; background: #fff; box-shadow: 0 3px 12px rgb(20 36 62 / 3%); }
+.branch-list__identity { display: flex; min-width: 0; align-items: center; gap: .85rem; }
+.branch-list__code { display: grid; min-width: 52px; min-height: 38px; place-items: center; padding: 0 .5rem; border-radius: 9px; color: #245edb; background: #eaf1ff; font-size: .72rem; font-weight: 800; letter-spacing: .035em; }
+.branch-list__copy { display: grid; min-width: 0; gap: .25rem; }
+.branch-list__copy strong { color: #17243b; font-size: .92rem; }
+.branch-list__copy span { overflow-wrap: anywhere; color: #64748b; font-size: .78rem; }
+.branch-list__row button { flex: 0 0 auto; padding: .5rem .85rem; font-size: .8rem; }
+.branch-list__row button:hover { border-color: #93b4ec; background: #f8faff; }
+.branch-list__empty { display: grid; justify-items: center; padding: 3.2rem 1rem; border: 1px dashed #cbd5e1; border-radius: 12px; background: #fff; text-align: center; }
+.branch-list__empty-mark { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: #eaf1ff; color: #245edb; font-size: .72rem; font-weight: 800; }
+.branch-list__empty h2 { margin: .9rem 0 .35rem; color: #17243b; font-size: 1rem; }
+.branch-list__empty p { max-width: 340px; margin: 0; color: #64748b; font-size: .82rem; line-height: 1.5; }
+
+.branch-form { display: grid; gap: .85rem; }
+.branch-form > p:first-child { margin: 0 0 .1rem; color: #64748b; font-size: .84rem; line-height: 1.45; }
+.branch-form label { display: grid; gap: .4rem; color: #334155; font-size: .8rem; font-weight: 650; }
+.branch-form label span { color: #8390a1; font-size: .73rem; font-weight: 400; }
+.branch-form input { width: 100%; min-height: 40px; padding: .55rem .7rem; border: 1px solid #cbd5e1; border-radius: 8px; color: #17243b; background: #fff; font: inherit; font-size: .84rem; font-weight: 400; }
+.branch-form input::placeholder { color: #9aa6b8; }
+.branch-form input[aria-invalid="true"] { border-color: #dc2626; }
+.branch-form small { color: #b91c1c; font-size: .72rem; font-weight: 500; }
+.branch-form__address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.branch-form__root-error { margin: 0; color: #991b1b; font-size: .8rem; }
+.branch-form__actions { display: flex; justify-content: flex-end; gap: .6rem; padding-top: .9rem; border-top: 1px solid #e2e8f0; }
+.branch-form__actions button { min-height: 39px; padding: .55rem 1rem; border: 1px solid #2563eb; border-radius: 8px; color: #fff; background: #2563eb; font: inherit; font-size: .82rem; font-weight: 650; cursor: pointer; }
+.branch-form__actions button:disabled { opacity: .55; cursor: wait; }
+.branch-form__actions .branch-form__cancel { border-color: #cbd5e1; color: #334155; background: #fff; }
+
+@media (max-width: 640px) {
+  .sqlite-branches-page { padding: 1rem; }
+  .sqlite-branches-page .page-header { align-items: flex-start; }
+  .sqlite-branches-page__toolbar { width: 100%; }
+  .sqlite-branches-page__toolbar button { flex: 1; }
+  .branch-list__row { align-items: flex-start; padding: .8rem; }
+  .branch-list__identity { gap: .6rem; }
+  .branch-list__copy span { max-width: 220px; }
+  .branch-form__address-grid { grid-template-columns: 1fr; }
+}
